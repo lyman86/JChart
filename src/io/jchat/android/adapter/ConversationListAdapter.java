@@ -1,0 +1,155 @@
+package io.jchat.android.adapter;
+
+import io.jchat.android.activity.ConversationListFragment;
+import io.jchat.android.activity.R;
+import io.jchat.android.tools.BitmapLoader;
+import io.jchat.android.tools.NativeImageLoader;
+import io.jchat.android.tools.TimeFormat;
+import io.jchat.android.view.CircleImageView;
+
+import java.io.File;
+import java.util.List;
+
+import android.graphics.Bitmap;
+import android.util.DisplayMetrics;
+import android.view.LayoutInflater;
+import android.view.View;
+import android.view.ViewGroup;
+import android.widget.BaseAdapter;
+import android.widget.TextView;
+import cn.jpush.im.android.api.enums.ConversationType;
+import cn.jpush.im.android.api.model.Conversation;
+
+public class ConversationListAdapter extends BaseAdapter {
+
+    List<Conversation> mDatas;
+    private ConversationListFragment mContext;
+
+    public ConversationListAdapter(ConversationListFragment context,
+                                   List<Conversation> data) {
+        this.mContext = context;
+        this.mDatas = data;
+        DisplayMetrics dm = new DisplayMetrics();
+        (context.getActivity()).getWindowManager().getDefaultDisplay().getMetrics(dm);
+        double density = dm.density;
+        for (Conversation conv : mDatas) {
+            if (conv.getType().equals(ConversationType.single)){
+                File file = conv.getAvatarFile();
+                if(file != null){
+                    Bitmap bitmap = BitmapLoader.getBitmapFromFile(file.getAbsolutePath(), (int)(50 * density), (int)(50 * density));
+                    NativeImageLoader.getInstance().updateBitmapFromCache(conv.getTargetId(), bitmap);
+                }
+            }
+        }
+    }
+
+    public void refresh(List<Conversation> data) {
+        mDatas.clear();
+        this.mDatas = data;
+        notifyDataSetChanged();
+    }
+
+    @Override
+    public int getCount() {
+        if (mDatas == null) {
+            return 0;
+        }
+        return mDatas.size();
+    }
+
+    @Override
+    public Conversation getItem(int position) {
+        if (mDatas == null) {
+            return null;
+        }
+        return mDatas.get(position);
+    }
+
+    @Override
+    public long getItemId(int position) {
+        return position;
+    }
+
+    @Override
+    public View getView(final int position, View convertView, ViewGroup parent) {
+        final Conversation convItem = mDatas.get(position);
+        final ViewHolder viewHolder;
+        if (convertView == null) {
+            convertView = LayoutInflater.from(mContext.getActivity()).inflate(
+                    R.layout.conversation_list_item, null);
+            viewHolder = new ViewHolder();
+            viewHolder.headIcon = (CircleImageView) convertView
+                    .findViewById(R.id.msg_item_head_icon);
+            viewHolder.groupName = (TextView) convertView
+                    .findViewById(R.id.conv_item_group_name);
+            viewHolder.content = (TextView) convertView
+                    .findViewById(R.id.msg_item_content);
+            viewHolder.datetime = (TextView) convertView
+                    .findViewById(R.id.msg_item_date);
+            viewHolder.newMsgNumber = (TextView) convertView
+                    .findViewById(R.id.new_msg_number);
+            convertView.setTag(viewHolder);
+        } else {
+            viewHolder = (ViewHolder) convertView.getTag();
+
+        }
+        TimeFormat timeFormat = new TimeFormat(mContext.getActivity(), convItem.getLastMsgDate());
+        if (convItem.getLastMsgDate() != 0) {
+            viewHolder.datetime.setText(timeFormat.getTime());
+        } else viewHolder.datetime.setText("");
+        // 鎸夌収鏈�悗涓�潯娑堟伅鐨勬秷鎭被鍨嬭繘琛屽鐞�
+        switch (convItem.getLatestType()) {
+            case image:
+                viewHolder.content.setText(mContext.getString(R.string.type_picture));
+                break;
+            case voice:
+                viewHolder.content.setText(mContext.getString(R.string.type_voice));
+                break;
+            case location:
+                viewHolder.content.setText(mContext.getString(R.string.type_location));
+                break;
+            case eventNotification:
+                viewHolder.content.setText(mContext.getString(R.string.group_notification));
+                break;
+            default:
+                viewHolder.content.setText(convItem.getLatestText());
+        }
+
+//		viewHolder.headIcon.setImageResource(R.drawable.head_icon);
+        // 濡傛灉鏄崟鑱�
+        if (convItem.getType().equals(ConversationType.single)) {
+            viewHolder.groupName.setText(convItem.getTitle());
+            Bitmap bitmap = NativeImageLoader.getInstance().getBitmapFromMemCache(convItem.getTargetId());
+            if (bitmap != null)
+                viewHolder.headIcon.setImageBitmap(bitmap);
+            else viewHolder.headIcon.setImageResource(R.drawable.head_icon);
+        }
+        // 缇よ亰
+        else {
+            viewHolder.headIcon.setImageResource(R.drawable.group);
+            viewHolder.groupName.setText(convItem.getTitle());
+        }
+
+        // TODO 鏇存柊Message鐨勬暟閲�
+        if (convItem.getUnReadMsgCnt() > 0) {
+            viewHolder.newMsgNumber.setVisibility(View.VISIBLE);
+            if(convItem.getUnReadMsgCnt() < 100)
+                viewHolder.newMsgNumber.setText(String.valueOf(convItem
+                    .getUnReadMsgCnt()));
+            else viewHolder.newMsgNumber.setText("99");
+        } else {
+            viewHolder.newMsgNumber.setVisibility(View.GONE);
+        }
+
+        return convertView;
+    }
+
+    private class ViewHolder {
+        CircleImageView headIcon;
+        TextView groupName;
+        TextView content;
+        TextView datetime;
+        TextView newMsgNumber;
+    }
+
+}
